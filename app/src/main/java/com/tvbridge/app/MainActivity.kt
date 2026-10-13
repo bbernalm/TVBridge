@@ -98,6 +98,18 @@ class MainActivity : Activity() {
         setOnClickListener { action() }
     }
 
+    /** A button that fills the width, for buttons placed directly in a vertical layout. */
+    private fun fullBtn(text: String, action: () -> Unit): Button = Button(this).apply {
+        this.text = text
+        isAllCaps = false
+        textSize = 13f
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+        )
+        setOnClickListener { action() }
+    }
+
     /** An invisible placeholder that keeps button rows aligned. */
     private fun gap(): View = View(this).apply {
         layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
@@ -201,7 +213,7 @@ class MainActivity : Activity() {
         label(root, "Aplicaciones")
         appsBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         root.addView(appsBox)
-        root.addView(cmdBtn("Recargar entradas y aplicaciones") { listsLoaded = false })
+        root.addView(fullBtn("Recargar entradas y aplicaciones") { listsLoaded = false })
 
         label(root, "Escribir en el TV (con el teclado del TV abierto)")
         etText = field(root, "Texto")
@@ -212,10 +224,10 @@ class MainActivity : Activity() {
 
         label(root, "Mostrar un aviso en la pantalla del TV")
         etToast = field(root, "Mensaje")
-        root.addView(cmdBtn("Mostrar aviso") { sendToastClicked() })
+        root.addView(fullBtn("Mostrar aviso") { sendToastClicked() })
 
         // ---- Configuración
-        root.addView(cmdBtn("Configuración (mostrar / ocultar)") {
+        root.addView(fullBtn("Configuración (mostrar / ocultar)") {
             cfgBox.visibility = if (cfgBox.visibility == View.VISIBLE) View.GONE else View.VISIBLE
         })
         cfgBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -226,13 +238,13 @@ class MainActivity : Activity() {
         etKey = field(cfgBox, "Sinric Pro · App Key")
         etSecret = field(cfgBox, "Sinric Pro · App Secret", secret = true)
         etDevice = field(cfgBox, "Sinric Pro · Device ID")
-        cfgBox.addView(cmdBtn("Guardar (solo control con botones)") { onSaveClicked(start = false) })
-        cfgBox.addView(cmdBtn("Guardar e iniciar voz con Google Home") { onSaveClicked(start = true) })
-        cfgBox.addView(cmdBtn("Detener voz con Google Home") {
+        cfgBox.addView(fullBtn("Guardar (solo control con botones)") { onSaveClicked(start = false) })
+        cfgBox.addView(fullBtn("Guardar e iniciar voz con Google Home") { onSaveClicked(start = true) })
+        cfgBox.addView(fullBtn("Detener voz con Google Home") {
             stopService(Intent(this, BridgeService::class.java))
         })
-        cfgBox.addView(cmdBtn("Quitar ahorro de batería (importante)") { askBattery() })
-        cfgBox.addView(cmdBtn("Olvidar emparejamiento con el TV") {
+        cfgBox.addView(fullBtn("Quitar ahorro de batería (importante)") { askBattery() })
+        cfgBox.addView(fullBtn("Olvidar emparejamiento con el TV") {
             Config.clearClientKey(this)
             TvHub.restart(this)
             toast("Listo. La próxima conexión pedirá aceptar de nuevo en el TV.")
