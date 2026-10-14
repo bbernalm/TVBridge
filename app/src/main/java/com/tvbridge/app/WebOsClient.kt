@@ -93,6 +93,32 @@ class WebOsClient(
         failPending()
     }
 
+    /**
+     * The phone's network came back or changed (Wi-Fi reconnected, Wi-Fi <-> mobile data):
+     * reconnect now instead of waiting for the old socket to time out. With [force] the
+     * current connection is dropped even if it looks alive, because after a network change
+     * it is usually dead without the phone knowing yet.
+     */
+    fun kick(force: Boolean) {
+        if (!running) return
+        handler.post {
+            if (!running) return@post
+            if (connected && !force) return@post
+            handler.removeCallbacksAndMessages(null)
+            val w = ws
+            ws = null
+            updateConnected(false)
+            closePointer()
+            failPending()
+            try {
+                w?.cancel()
+            } catch (e: Exception) {
+                // ignore
+            }
+            handler.postDelayed({ connect() }, 500)
+        }
+    }
+
     private fun updateConnected(value: Boolean) {
         connected = value
         BridgeState.tvConnected = value

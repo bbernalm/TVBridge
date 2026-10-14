@@ -26,6 +26,12 @@ object TvHub {
         if (holders.isEmpty()) teardown()
     }
 
+    /** Reconnects now (the phone's network changed or came back). */
+    @Synchronized
+    fun kick(force: Boolean) {
+        client?.kick(force)
+    }
+
     /** Rebuilds the connection after the settings changed (new IP, for example). */
     @Synchronized
     fun restart(ctx: Context) {

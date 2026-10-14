@@ -8,6 +8,8 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.drawable.Icon
+import android.net.ConnectivityManager
+import android.net.Network
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Handler
@@ -31,6 +33,49 @@ class BridgeService : Service() {
     private var wifiLock: WifiManager.WifiLock? = null
     private val handler = Handler(Looper.getMainLooper())
     private var lastText = ""
+    private var netCallback: ConnectivityManager.NetworkCallback? = null
+    private var lastNetwork: Network? = null
+
+    /**
+     * Android silently kills sockets when the Wi-Fi sleeps or the phone switches between
+     * Wi-Fi and mobile data ("Software caused connection abort"). This watches the default
+     * network and reconnects right away instead of waiting for the old sockets to time out.
+     */
+    private fun watchNetwork() {
+        val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        val cb = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                handler.post {
+                    val changed = lastNetwork != null && lastNetwork != network
+                    lastNetwork = network
+                    if (changed) BridgeState.log("La red cambió: reconectando…")
+                    TvHub.kick(changed)
+                    sinric?.kick(changed)
+                }
+            }
+
+            override fun onLost(network: Network) {
+                handler.post { if (lastNetwork == network) lastNetwork = null }
+            }
+        }
+        try {
+            cm.registerDefaultNetworkCallback(cb)
+            netCallback = cb
+        } catch (e: Exception) {
+            BridgeState.log("No pude vigilar la red: ${e.message}")
+        }
+    }
+
+    private fun unwatchNetwork() {
+        val cb = netCallback ?: return
+        netCallback = null
+        lastNetwork = null
+        try {
+            (getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager).unregisterNetworkCallback(cb)
+        } catch (e: Exception) {
+            // ignore
+        }
+    }
 
     private val tick = object : Runnable {
         override fun run() {
@@ -108,11 +153,13 @@ class BridgeService : Service() {
         val client = SinricClient(cfg.appKey, cfg.appSecret, cfg.deviceId) { TvHub.controller }
         sinric = client
         client.start()
+        watchNetwork()
         handler.post(tick)
     }
 
     private fun stopBridge() {
         handler.removeCallbacks(tick)
+        unwatchNetwork()
         sinric?.stop()
         sinric = null
         TvHub.release("service")

@@ -33,7 +33,8 @@ class SinricClient(
 ) {
     private val handler = Handler(Looper.getMainLooper())
     private val http = OkHttpClient.Builder()
-        .pingInterval(120, TimeUnit.SECONDS)
+        // A short ping detects a dead connection within ~1 minute (routers drop idle ones).
+        .pingInterval(25, TimeUnit.SECONDS)
         .readTimeout(0, TimeUnit.MILLISECONDS)
         .build()
 
@@ -59,6 +60,29 @@ class SinricClient(
         }
     }
 
+    /**
+     * The phone's network came back or changed: reconnect now instead of waiting for the old
+     * socket to time out. With [force] the current connection is dropped even if it looks
+     * alive, because after a network change it is usually dead without the phone knowing yet.
+     */
+    fun kick(force: Boolean) {
+        if (!running) return
+        handler.post {
+            if (!running) return@post
+            if (BridgeState.cloudConnected && !force) return@post
+            handler.removeCallbacksAndMessages(null)
+            val w = ws
+            ws = null
+            BridgeState.cloudConnected = false
+            try {
+                w?.cancel()
+            } catch (e: Exception) {
+                // ignore
+            }
+            handler.postDelayed({ connect() }, 500)
+        }
+    }
+
     private fun connect() {
         if (!running) return
         BridgeState.log("Conectando con Sinric Pro…")
@@ -78,7 +102,7 @@ class SinricClient(
         ws = null
         BridgeState.cloudConnected = false
         BridgeState.log("Sinric Pro desconectado: $why")
-        if (running) handler.postDelayed({ connect() }, 5000)
+        if (running) handler.postDelayed({ connect() }, 3000)
     }
 
     private val listener = object : WebSocketListener() {
